@@ -1,0 +1,20 @@
+{
+  "$id": "69bd1215001bd5ad8496",
+  "name": "Ferrari Cars Project",
+  "functions": [
+    {
+      "$id": "ferrari-cars",
+      "name": "Ferrari Cars API",
+      "runtime": "python-3.12",
+      "path": "functions/ferrari_function",
+      "entrypoint": "src/main.py",
+      "execute": ["any"],
+      "events": [],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "scopes": []
+    }
+  ]
+}
