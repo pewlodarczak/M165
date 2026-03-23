@@ -1,84 +1,54 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { functions } from './appwrite';
 import './App.css';
 
 function App() {
   const [cars, setCars] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [lastId, setLastId] = useState(null);
-  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState({});
   const [savedPosts, setSavedPosts] = useState({});
   const [filter, setFilter] = useState('all');
 
-  // Ref für den Observer
-  const observer = useRef();
-
-  const loadFerraris = useCallback(async (isInitial = false) => {
-    if (loading || (!hasMore && !isInitial)) return;
-
-    setLoading(true);
+const loadAllFerraris = async (lastId = null) => {
     try {
-      // Bei initialem Laden fangen wir bei null an, sonst nutzen wir die lastId
-      const currentLastId = isInitial ? null : lastId;
-      const limit = 6; // Kleinere Häppchen für besseres Scrolling-Gefühl
-      const queryParams = `?limit=${limit}${currentLastId ? `&last_id=${currentLastId}` : ''}`;
+      setLoading(true);
+
+      // Wir definieren queryParams hier lokal.
+      // Wenn lastId null ist, wird nur das Limit gesendet.
+      const queryParams = `?limit=25${lastId ? `&last_id=${lastId}` : ''}`;
 
       const execution = await functions.createExecution(
         '69be90a200394182f3c3',
-        '',
+        '', // Body leer lassen
         false,
-        `/${queryParams}`,
+        `/${queryParams}`, // Den Pfad mit Parametern übergeben
         'GET'
       );
 
       const data = JSON.parse(execution.responseBody);
-      const newCars = data.cars || [];
+      console.log("Daten empfangen:", data);
 
-      // Wichtig: Neue Autos an die alten anhängen
-      setCars(prev => isInitial ? newCars : [...prev, ...newCars]);
-
-      // Neue lastId aus den Daten setzen
-      setLastId(data.lastId);
-
-      // Prüfen, ob es noch mehr gibt (wenn weniger als das Limit geliefert wurde, ist Ende)
-      setHasMore(newCars.length === limit);
-
+      setCars(data.cars || []);
     } catch (error) {
       console.error("Error loading Ferraris:", error);
     } finally {
       setLoading(false);
     }
-  }, [lastId, loading, hasMore]);
-
-  // Das Herzstück des Infinite Scrolling:
-  const lastElementRef = useCallback(node => {
-    if (loading) return;
-    if (observer.current) observer.current.disconnect();
-
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        loadFerraris();
-      }
-    });
-
-    if (node) observer.current.observe(node);
-  }, [loading, hasMore, loadFerraris]);
-
-  useEffect(() => {
-    loadFerraris(true); // Erster Aufruf beim Start
-  }, []);
+  };
+  useEffect(() => { loadAllFerraris(); }, []);
 
   const handleLike = (id) => setLikedPosts(prev => ({ ...prev, [id]: !prev[id] }));
   const handleSave = (id) => setSavedPosts(prev => ({ ...prev, [id]: !prev[id] }));
 
-  // Filterung (berücksichtigt nur die bereits geladenen Cars)
   const filteredCars = filter === 'all' ? cars :
                        filter === 'liked' ? cars.filter(c => likedPosts[c.id]) :
                        cars.filter(c => savedPosts[c.id]);
 
+  if (loading) return <div className="loader">🏎️ Loading DriveGram...</div>;
+
   return (
     <div className="mobile-container">
+      {/* HEADER */}
       <header className="main-header">
         <div className="logo-section">
           <span className="car-icon">🏎️</span>
@@ -91,6 +61,7 @@ function App() {
         </div>
       </header>
 
+      {/* STORIES (Filter) */}
       <div className="stories-bar">
         {[
           { id: 'all', label: 'Ferrari', img: '🏎️' },
@@ -106,58 +77,42 @@ function App() {
         ))}
       </div>
 
+      {/* FEED */}
       <main className="feed">
-        {filteredCars.map((car, index) => {
-          // Wir prüfen, ob dies das letzte Element in der aktuellen Liste ist
-          const isLastElement = filteredCars.length === index + 1;
-
-          return (
-            <article
-              key={car.id}
-              className="post"
-              ref={isLastElement ? lastElementRef : null}
-            >
-              <div className="post-header">
-                <div className="user-info">
-                  <div className="mini-avatar">🏎️</div>
-                  <div className="user-text">
-                    <span className="username">Ferrari Concepts</span>
-                    <span className="location">{car.brand} • {car.year || '2024'}</span>
-                  </div>
-                </div>
-                <span className="dots">•••</span>
-              </div>
-
-              <img src={car.image_url} alt={car.model} className="post-image" />
-
-              <div className="post-footer">
-                <div className="action-bar">
-                  <div className="left-actions">
-                    <button onClick={() => handleLike(car.id)}>{likedPosts[car.id] ? '❤️' : '🤍'}</button>
-                    <span>💬</span>
-                    <span>📤</span>
-                  </div>
-                  <button onClick={() => handleSave(car.id)}>{savedPosts[car.id] ? '📌' : '🔖'}</button>
-                </div>
-                <div className="likes-count">
-                    {Math.floor(Math.random() * 500) + (likedPosts[car.id] ? 1 : 0)} likes
-                </div>
-                <div className="caption">
-                  <span className="username">{car.model}</span> {car.title}
+        {filteredCars.map(car => (
+          <article key={car.id} className="post">
+            <div className="post-header">
+              <div className="user-info">
+                <div className="mini-avatar">🏎️</div>
+                <div className="user-text">
+                  <span className="username">Ferrari Concepts</span>
+                  <span className="location">{car.brand} • {car.year || '2024'}</span>
                 </div>
               </div>
-            </article>
-          );
-        })}
+              <span className="dots">•••</span>
+            </div>
 
-        {loading && (
-          <div className="loader-container">
-            <div className="spinner"></div>
-            <p>Fetching more Ferraris...</p>
-          </div>
-        )}
+            <img src={car.image_url} alt={car.model} className="post-image" />
+
+            <div className="post-footer">
+              <div className="action-bar">
+                <div className="left-actions">
+                  <button onClick={() => handleLike(car.id)}>{likedPosts[car.id] ? '❤️' : '🤍'}</button>
+                  <span>💬</span>
+                  <span>📤</span>
+                </div>
+                <button onClick={() => handleSave(car.id)}>{savedPosts[car.id] ? '📌' : '🔖'}</button>
+              </div>
+              <div className="likes-count">{Math.floor(Math.random() * 500) + (likedPosts[car.id] ? 1 : 0)} likes</div>
+              <div className="caption">
+                <span className="username">{car.model}</span> {car.title}
+              </div>
+            </div>
+          </article>
+        ))}
       </main>
 
+      {/* BOTTOM NAV */}
       <nav className="bottom-nav">
         <button onClick={() => setFilter('all')} className={filter === 'all' ? 'active' : ''}>🏠</button>
         <button>🔍</button>
